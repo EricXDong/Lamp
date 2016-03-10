@@ -1,2 +1,2 @@
-C:\Program Files (x86)\Evernote
-C:\Users\Eric Dong\Documents\eclipseWorkspace
+C:\Program Files (x86)
+C:\Program Files

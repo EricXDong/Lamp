@@ -2,6 +2,7 @@ package main;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dialog.ModalityType;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -24,6 +25,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -53,8 +56,8 @@ import event.LampEventGen;
 import event.LampEventListener;
 
 /**
- * TODO: Show waiting window if user tries to open search before paths have been parsed
- * TODO: Implement add/remove buttons for aliases
+ * TODO: Running the visitor on giant trees makes computer slow
+ * TODO: Create error log
  * TODO: Can't add the same alias/path twice
  * @author Eric Dong
  */
@@ -64,6 +67,7 @@ public class Lamp implements LampEventListener {
 	
 	public static final String pathsDir = "./data/paths.txt";
 	public static final String aliasDir = "./data/alias.txt";
+	public static final Dimension standardButtonSize = new Dimension(80, 25);
 	
 	/********	Member variables	********/
 	private HashSet<String> searchPaths;
@@ -78,6 +82,7 @@ public class Lamp implements LampEventListener {
 	private JList<String> aliasJList;
 	
 	private boolean toggleSearch;
+	private boolean initLoadFinished;
 	
 	/***********************************/
 	/********	Public Methods	********/
@@ -92,11 +97,31 @@ public class Lamp implements LampEventListener {
 		}
 		this.aliases = aliases;
 		toggleSearch = false;
+		initLoadFinished = false;
 		executables = new HashMap<String, String>();
 		
-        this.updateDatabase(searchPaths);
-        System.out.println("Database ready!");
 		this.initUI();
+		
+		//	Register a listener for done updating event
+		LampEventGen.addEventListener(new LampEventListener () {
+			@Override
+			public void handleEvent (LampEvent event) {
+				if (event.myEvent == LampEvent.EVENTS.DONE_UPDATING) {
+					initLoadFinished = true;
+				}
+			}
+		});
+		
+		//	Run parse in background
+		Thread t = new Thread() {
+			@Override
+			public void run () {
+				updateDatabase(searchPaths);
+				System.out.println("Database ready!");
+			}
+		};
+		t.start();
+		
 	}
 	
 	//	Listen for hotkey event to open search
@@ -236,9 +261,15 @@ public class Lamp implements LampEventListener {
 	
 	//	Toggles search box visible/hidden
 	private void toggleSearchBox() {
-		toggleSearch = !toggleSearch;
-		searchBox.setVisible(toggleSearch);
-		textField.setText("");
+		if (!initLoadFinished) {
+			//	Initial load unfinished, tell user to sit tight
+			JOptionPane.showMessageDialog(null, "Chill son, I'm still parsing. Wait a bit...");
+		}
+		else {
+			toggleSearch = !toggleSearch;
+			searchBox.setVisible(toggleSearch);
+			textField.setText("");
+		}
 	}
 	
 	//	Initialize the GUI
@@ -328,18 +359,18 @@ public class Lamp implements LampEventListener {
 		//	Create Add/Remove buttons for both panels
 		JPanel buttonPanel = new JPanel();
 		JButton pathAddButton = new JButton("Add...");
-		pathAddButton.setPreferredSize(new Dimension(80, 25));
+		pathAddButton.setPreferredSize(standardButtonSize);
 		JButton pathRemoveButton = new JButton("Remove");
-		pathRemoveButton.setPreferredSize(new Dimension(80, 25));
+		pathRemoveButton.setPreferredSize(standardButtonSize);
 		buttonPanel.add(pathAddButton);
 		buttonPanel.add(pathRemoveButton);
 		pathPanel.add(buttonPanel, BorderLayout.SOUTH);
 		
 		buttonPanel = new JPanel();
 		JButton aliasAddButton = new JButton("Add...");
-		aliasAddButton.setPreferredSize(new Dimension(80, 25));
+		aliasAddButton.setPreferredSize(standardButtonSize);
 		JButton aliasRemoveButton = new JButton("Remove");
-		aliasRemoveButton.setPreferredSize(new Dimension(80, 25));
+		aliasRemoveButton.setPreferredSize(standardButtonSize);
 		buttonPanel.add(aliasAddButton);
 		buttonPanel.add(aliasRemoveButton);
 		aliasPanel.add(buttonPanel, BorderLayout.SOUTH);
@@ -366,29 +397,39 @@ public class Lamp implements LampEventListener {
 		okButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed (ActionEvent e) {
-				//	Write the path updates to file
+				//	Write the path and alias updates to file
 				BufferedWriter bw = null;
 				try {
 					bw = new BufferedWriter(new FileWriter(pathsDir, false));
-					ListModel<String> model = searchPathJList.getModel();
+					ListModel<String> pathModel = searchPathJList.getModel();
 					
 					//	Iterate through the paths
-					for (int i = 0; i < model.getSize(); i++) {
-						String path = model.getElementAt(i);
+					for (int i = 0; i < pathModel.getSize(); i++) {
+						String path = pathModel.getElementAt(i);
 						bw.write(path);
 						bw.newLine();
 					}
+					bw.close();
+					
+					//	Iterate through the aliases
+					bw = new BufferedWriter(new FileWriter(aliasDir, false));
+					ListModel<String> aliasModel = aliasJList.getModel();
+					for (int i = 0; i < aliasModel.getSize(); i++) {
+						String alias = aliasModel.getElementAt(i);
+						
+						//	Get individual key/value
+						String[] split = alias.split(" = ");
+						split[0] = split[0].replace("\"", "");
+						split[1] = split[1].replace("\"", "");
+			
+						//	Write in appropriate format
+						bw.write(split[0] + ":" + split[1]);
+						bw.newLine();
+					}
+					bw.close();
 				}
 				catch (IOException e1) {
 					e1.printStackTrace();
-				}
-				finally {
-					try {
-						bw.close();
-					}
-					catch (IOException e1) {
-						e1.printStackTrace();
-					}
 				}
 				
 				//	Remove deleted items from executables, if any
@@ -408,15 +449,17 @@ public class Lamp implements LampEventListener {
 				
 				//	Add the added items to executables, if any
 				if (execsAdded.size() > 0) {
-					//	Tell user to sit tight
-					JDialog mess = Util.createMessageWindow("Parsing new search paths...", "Lampin around", 60);
-					
 					//	Register a listener for done updating event
+					JDialog mess = Util.createMessageWindow("Parsing new search paths...", "Lampin around", 60);
 					LampEventGen.addEventListener(new LampEventListener () {
 						@Override
 						public void handleEvent (LampEvent event) {
 							if (event.myEvent == LampEvent.EVENTS.DONE_UPDATING) {
 								mess.dispose();
+								LampEventGen.removeEventListener(this);
+							}
+							else {
+								JOptionPane.showMessageDialog(null, "FOUND EVENT: " + event.myEvent);
 							}
 						}
 					});
@@ -502,7 +545,102 @@ public class Lamp implements LampEventListener {
 		aliasAddButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed (ActionEvent e) {
-				JDialog aliasDialog = new JDialog();
+				//	Create two JPanels with a textfield and label each
+				JPanel enterAliasPanel = new JPanel(new GridLayout(1, 2));
+				JTextField aliasField = new JTextField();
+				JLabel aliasLabel = new JLabel("Alias: ", SwingConstants.RIGHT);
+				enterAliasPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+				enterAliasPanel.add(aliasLabel);
+				enterAliasPanel.add(aliasField);
+				
+				JPanel enterFullPanel = new JPanel(new GridLayout(1, 2));
+				JTextField fullField = new JTextField();
+				JLabel fullLabel = new JLabel("Full file name: ", SwingConstants.RIGHT);
+				enterFullPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+				enterFullPanel.add(fullLabel);
+				enterFullPanel.add(fullField);
+				
+				//	Appropriate settings
+				aliasField.setColumns(20);
+				aliasField.setFont(new Font("SansSerif", Font.PLAIN, 28));
+				fullField.setColumns(20);
+				fullField.setFont(new Font("SansSerif", Font.PLAIN, 28));
+				aliasLabel.setFont(new Font("SansSerif", Font.PLAIN, 28));
+				fullLabel.setFont(new Font("SansSerif", Font.PLAIN, 28));
+				
+				//	OK/cancel button with JPanel
+				JButton okButton = new JButton("OK");
+				okButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+				okButton.setMinimumSize(new Dimension(100, 30));
+				okButton.setPreferredSize(new Dimension(100, 30));
+				okButton.setMaximumSize(new Dimension(100, 30));
+				
+				JButton cancelButton = new JButton("Cancel");
+				cancelButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+				cancelButton.setMinimumSize(new Dimension(100, 30));
+				cancelButton.setPreferredSize(new Dimension(100, 30));
+				cancelButton.setMaximumSize(new Dimension(100, 30));
+				
+				//	Panel for the buttons
+				JPanel okButtonPanel = new JPanel();
+				okButtonPanel.setLayout(new BoxLayout(okButtonPanel, BoxLayout.X_AXIS));
+				okButtonPanel.add(Box.createHorizontalGlue());
+				okButtonPanel.add(okButton);
+				okButtonPanel.add(Box.createHorizontalGlue());
+				okButtonPanel.add(cancelButton);
+				okButtonPanel.add(Box.createHorizontalGlue());
+				
+				//	Create JPanel to hold everything
+				JPanel aliasSettingsPane = new JPanel();
+				aliasSettingsPane.setLayout(new GridLayout(3, 1));
+				aliasSettingsPane.add(enterAliasPanel);
+				aliasSettingsPane.add(enterFullPanel);
+				aliasSettingsPane.add(okButtonPanel);
+				
+				//	Create JFrame for the panel of everything
+				JFrame aliasJFrame = new JFrame("Alias");
+				aliasJFrame.setSize(600, 200);
+				Util.centerComponentOnScreen(aliasJFrame);
+				
+				aliasJFrame.add(aliasSettingsPane);
+				aliasJFrame.setVisible(true);
+				
+				//	Action listeners
+				okButton.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed (ActionEvent ae) {
+						//	Error check for empty fields
+						if (aliasField.getText().isEmpty() || fullField.getText().isEmpty()) {
+							JOptionPane.showMessageDialog(
+								null,
+								"Please fill out both fields.",
+								"Y u du dis",
+								JOptionPane.ERROR_MESSAGE
+							);
+							aliasField.setText("");
+							fullField.setText("");
+						}
+						else {
+							//	Add to map of aliases
+							String alias = aliasField.getText();
+							String full = fullField.getText();
+							aliases.put(alias, full);
+							
+							//	Add alias to JList
+							DefaultListModel<String> model = (DefaultListModel<String>)aliasJList.getModel();
+							model.addElement("\"" + alias + "\" = \"" + full + "\"");
+							aliasJList.setModel(model);
+							
+							aliasJFrame.dispose();
+						}
+					}
+				});
+				cancelButton.addActionListener(new ActionListener () {
+					@Override
+					public void actionPerformed (ActionEvent ae) {
+						aliasJFrame.dispose();
+					}
+				});
 			}
 		});
 		
@@ -510,7 +648,18 @@ public class Lamp implements LampEventListener {
 		aliasRemoveButton.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed (ActionEvent e) {
+				//	Get selected item and remove from map
+				DefaultListModel<String> model = (DefaultListModel<String>)aliasJList.getModel();
+				int[] selected = aliasJList.getSelectedIndices();
+				for (int i = 0; i < selected.length; i++) {
+					//	Get the key from item and remove
+					String item = model.getElementAt(selected[i]);
+					String key = item.substring(1, item.indexOf("\" ="));
+					aliases.remove(key);
+				}
 				
+				//	Remove from JList
+				Util.removeSelectedItemsFromJList(aliasJList);
 			}
 		});
 		

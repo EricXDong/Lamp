@@ -9,6 +9,7 @@ import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.Robot;
 import java.awt.Toolkit;
+import java.awt.Dialog.ModalityType;
 import java.awt.event.InputEvent;
 import java.util.ArrayList;
 
@@ -17,7 +18,12 @@ import javax.swing.DefaultListModel;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+
+import event.LampEvent;
+import event.LampEventGen;
+import event.LampEventListener;
 
 public class Util {
 	//	Simulate mouse click at (x, y)
@@ -58,8 +64,8 @@ public class Util {
 		
 		//	Remove each selected item
 		for (int i = 0; i < selected.length; i++) {
-			T path = model.getElementAt(selected[i]);
-			itemsRemoved.add(path);		//	Add to ArrayList for deletion
+			T item = model.getElementAt(selected[i]);
+			itemsRemoved.add(item);		//	Add to ArrayList for deletion
 			model.remove(selected[i]);
 			
 			//	Decrease all succeeding indices by 1 because of the removal

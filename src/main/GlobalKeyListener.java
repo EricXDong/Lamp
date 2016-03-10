@@ -8,10 +8,10 @@ import event.LampEventGen;
 
 public class GlobalKeyListener implements NativeKeyListener {
 	private boolean shiftDown;
-	private boolean altDown;
+	private boolean ctrlDown;
 	
 	public GlobalKeyListener () {
-		shiftDown = altDown = false;
+		shiftDown = ctrlDown = false;
 	}
 	
     public void nativeKeyPressed (NativeKeyEvent e) {
@@ -20,11 +20,11 @@ public class GlobalKeyListener implements NativeKeyListener {
             shiftDown = true;
         }
         //	Pressing alt
-        if (e.getKeyCode() == NativeKeyEvent.VC_ALT_L || e.getKeyCode() == NativeKeyEvent.VC_ALT_R) {
-        	altDown = true;
+        if (e.getKeyCode() == NativeKeyEvent.VC_CONTROL_L || e.getKeyCode() == NativeKeyEvent.VC_CONTROL_R) {
+        	ctrlDown = true;
         }
         //	Pressing spacebar with shift and alt down
-        if (e.getKeyCode() == NativeKeyEvent.VC_SPACE && shiftDown && altDown) {
+        if (e.getKeyCode() == NativeKeyEvent.VC_SPACE && shiftDown && ctrlDown) {
         	LampEventGen.fireLampEvent(new LampEvent(this, LampEvent.EVENTS.HOTKEY_PRESSED));
         }
     }
@@ -36,7 +36,7 @@ public class GlobalKeyListener implements NativeKeyListener {
         }
         //	Released alt
         if (e.getKeyCode() == NativeKeyEvent.VC_ALT_L || e.getKeyCode() == NativeKeyEvent.VC_ALT_R) {
-        	altDown = false;
+        	ctrlDown = false;
         }
     }
 
