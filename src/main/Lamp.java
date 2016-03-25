@@ -57,8 +57,10 @@ import event.LampEventListener;
 
 /**
  * TODO: Running the visitor on giant trees makes computer slow
+ * 		https://stackoverflow.com/questions/1202184/throttling-cpu-memory-usage-of-a-thread-in-java
  * TODO: Create error log
  * TODO: Can't add the same alias/path twice
+ * TODO: Add cancel option when program is parsing new paths
  * @author Eric Dong
  */
 

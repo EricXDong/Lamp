@@ -31,6 +31,13 @@ public class FileTreeVisitor extends Thread {
 					//	Add to executables if .exe
 					executables.add(new String[] {f.getName().toLowerCase(), f.getAbsolutePath()});
 				}
+				//	Sleep a bit to reduce CPU usage
+				try {
+					Thread.sleep(5);
+				}
+				catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
 			else {
 				//	Create new thread for subtree

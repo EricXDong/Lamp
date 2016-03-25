@@ -7,8 +7,10 @@ import event.LampEvent;
 import event.LampEventGen;
 
 public class GlobalKeyListener implements NativeKeyListener {
+	public static long timeout = 1000;	//	How long user has to press all the hotkeys
 	private boolean shiftDown;
 	private boolean ctrlDown;
+	private long startTime;
 	
 	public GlobalKeyListener () {
 		shiftDown = ctrlDown = false;
@@ -18,14 +20,20 @@ public class GlobalKeyListener implements NativeKeyListener {
         //	Pressing shift
         if (e.getKeyCode() == NativeKeyEvent.VC_SHIFT_L || e.getKeyCode() == NativeKeyEvent.VC_SHIFT_R) {
             shiftDown = true;
+            startTime = System.currentTimeMillis();
         }
-        //	Pressing alt
-        if (e.getKeyCode() == NativeKeyEvent.VC_CONTROL_L || e.getKeyCode() == NativeKeyEvent.VC_CONTROL_R) {
-        	ctrlDown = true;
+        //	Pressing ctrl
+        if (shiftDown && e.getKeyCode() == NativeKeyEvent.VC_CONTROL_L || e.getKeyCode() == NativeKeyEvent.VC_CONTROL_R) {
+        	boolean isTimeout = System.currentTimeMillis() - startTime > timeout;
+        	shiftDown = ctrlDown = !isTimeout;	//	Reset if timed out
         }
-        //	Pressing spacebar with shift and alt down
+        //	Pressing spacebar with shift and ctrl down
         if (e.getKeyCode() == NativeKeyEvent.VC_SPACE && shiftDown && ctrlDown) {
-        	LampEventGen.fireLampEvent(new LampEvent(this, LampEvent.EVENTS.HOTKEY_PRESSED));
+        	if (System.currentTimeMillis() - startTime <= timeout) {
+        		//	Didn't time out
+        		LampEventGen.fireLampEvent(new LampEvent(this, LampEvent.EVENTS.HOTKEY_PRESSED));
+        	}
+        	shiftDown = ctrlDown = false;
         }
     }
 

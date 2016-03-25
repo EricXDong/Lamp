@@ -9,7 +9,6 @@ import java.awt.Font;
 import java.awt.GridBagLayout;
 import java.awt.Robot;
 import java.awt.Toolkit;
-import java.awt.Dialog.ModalityType;
 import java.awt.event.InputEvent;
 import java.util.ArrayList;
 
@@ -18,12 +17,7 @@ import javax.swing.DefaultListModel;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-
-import event.LampEvent;
-import event.LampEventGen;
-import event.LampEventListener;
 
 public class Util {
 	//	Simulate mouse click at (x, y)
