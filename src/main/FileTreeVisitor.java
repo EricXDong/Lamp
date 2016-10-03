@@ -2,10 +2,17 @@ package main;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.commons.io.FilenameUtils;
 
-public class FileTreeVisitor extends Thread {
+public class FileTreeVisitor implements Callable<FileTreeVisitor> {
+	public final int maxThreads = 80;
 	
 	public File rootDir;
 	public ArrayList<String[]> executables;
@@ -16,12 +23,13 @@ public class FileTreeVisitor extends Thread {
 	}
 	
 	@Override
-	public void run () {
-		ArrayList<FileTreeVisitor> allThreads = new ArrayList<FileTreeVisitor>();
+	public FileTreeVisitor call () {
+		ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(maxThreads);
+		List<Future<FileTreeVisitor>> futures = new ArrayList<>();
 		
 		if (rootDir.listFiles() == null) {
 			//	Don't have permission to some folders
-			return;
+			return this;
 		}
 		
 		//	Iterate through all files in folder
@@ -31,34 +39,29 @@ public class FileTreeVisitor extends Thread {
 					//	Add to executables if .exe
 					executables.add(new String[] {f.getName().toLowerCase(), f.getAbsolutePath()});
 				}
-				//	Sleep a bit to reduce CPU usage
-				try {
-					Thread.sleep(5);
-				}
-				catch (InterruptedException e) {
-					e.printStackTrace();
-				}
 			}
 			else {
 				//	Create new thread for subtree
 				FileTreeVisitor visit = new FileTreeVisitor(f);
-				visit.start();
-				allThreads.add(visit);
+				futures.add(executor.submit(visit));
 			}
 		}
 		
 		//	Wait for all sub threads to finish
-		for (FileTreeVisitor t : allThreads) {
+		for (Future<FileTreeVisitor> future: futures) {
+			//	Add all its execs to ours when finished
 			try {
-				t.join();
-				//	Add all its execs to ours when finished
-				for (String[] exec : t.executables) {
+				FileTreeVisitor visit = future.get();
+				for (String[] exec : visit.executables) {
 					executables.add(exec);
 				}
-			}
-			catch (InterruptedException e) {
+			} catch (ExecutionException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 		}
+		
+		return this;
 	}
 }

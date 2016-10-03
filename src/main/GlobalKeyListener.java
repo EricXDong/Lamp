@@ -1,5 +1,9 @@
 package main;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.jnativehook.GlobalScreen;
 import org.jnativehook.keyboard.NativeKeyEvent;
 import org.jnativehook.keyboard.NativeKeyListener;
 
@@ -14,6 +18,8 @@ public class GlobalKeyListener implements NativeKeyListener {
 	
 	public GlobalKeyListener () {
 		shiftDown = ctrlDown = false;
+		Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
+		logger.setLevel(Level.OFF);
 	}
 	
     public void nativeKeyPressed (NativeKeyEvent e) {
@@ -23,7 +29,7 @@ public class GlobalKeyListener implements NativeKeyListener {
             startTime = System.currentTimeMillis();
         }
         //	Pressing ctrl
-        if (shiftDown && e.getKeyCode() == NativeKeyEvent.VC_CONTROL_L || e.getKeyCode() == NativeKeyEvent.VC_CONTROL_R) {
+        if (shiftDown && (e.getKeyCode() == NativeKeyEvent.VC_CONTROL_L || e.getKeyCode() == NativeKeyEvent.VC_CONTROL_R)) {
         	boolean isTimeout = System.currentTimeMillis() - startTime > timeout;
         	shiftDown = ctrlDown = !isTimeout;	//	Reset if timed out
         }
@@ -36,7 +42,7 @@ public class GlobalKeyListener implements NativeKeyListener {
         	shiftDown = ctrlDown = false;
         }
     }
-
+ 
     public void nativeKeyReleased (NativeKeyEvent e) {
     	//  Released shift
         if (e.getKeyCode() == NativeKeyEvent.VC_SHIFT_L || e.getKeyCode() == NativeKeyEvent.VC_SHIFT_R) {

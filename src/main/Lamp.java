@@ -61,6 +61,7 @@ import event.LampEventListener;
  * TODO: Create error log
  * TODO: Can't add the same alias/path twice
  * TODO: Add cancel option when program is parsing new paths
+ * TODO: Add progress bar to directory parse
  * @author Eric Dong
  */
 
@@ -86,9 +87,9 @@ public class Lamp implements LampEventListener {
 	private boolean toggleSearch;
 	private boolean initLoadFinished;
 	
-	/***********************************/
-	/********	Public Methods	********/
-	/***********************************/
+	/***************************************/
+	/********	Public Methods	************/
+	/***************************************/
 	
 	public Lamp (ArrayList<String> searchPaths, HashMap<String, String> aliases) {
 		this.searchPaths = new HashSet<String>();
@@ -241,19 +242,13 @@ public class Lamp implements LampEventListener {
 				}
 			}
 			else {
-				try {
-					//	Kick off a visitor and let it do its thang
-					FileTreeVisitor visitor = new FileTreeVisitor(f);
-					visitor.start();
-					visitor.join();
-					
-					//	Store/remove all exec info
-					for (String[] exec : visitor.executables) {
-						executables.put(exec[0], exec[1]);
-					}
-				}
-				catch (InterruptedException e) {
-					e.printStackTrace();
+				//	Kick off a visitor and let it do its thang
+				FileTreeVisitor visitor = new FileTreeVisitor(f);
+				visitor.call();
+				
+				//	Store/remove all exec info
+				for (String[] exec : visitor.executables) {
+					executables.put(exec[0], exec[1]);
 				}
 			}
 		}
